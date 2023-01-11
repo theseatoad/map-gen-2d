@@ -1,0 +1,17 @@
+[package]
+name = "map-gen-2d"
+version = "0.1.0"
+edition = "2021"
+description = "2D map generation algorithms implementaion"
+keywords = ["2d", "game development", "algorithm", "bsp"]
+categories = ["2d", "game development", "algorithm", "bsp"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/theseatoad/map-gen-2d"
+homepage = "https://github.com/theseatoad/map-gen-2d"
+
+[dependencies]
+rand = "0.8.5"
+[[example]]
+name = "bsp-map.rs"
+path = "examples/bsp-map.rs"

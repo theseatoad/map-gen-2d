@@ -1,6 +1,5 @@
-use std::{fmt, collections::HashMap};
+use std::fmt;
 
-use rand::rngs::StdRng;
 use serde::{Serialize, Serializer};
 
 pub mod bsp;
@@ -28,12 +27,6 @@ impl fmt::Display for Tile {
         }
     }
 }
-pub trait Map {
-    fn new(size : Point, seed : StdRng) -> Result<Self, anyhow::Error> where Self: Sized;
-    fn get_tiles(&self) -> &HashMap<Point,Tile>;
-    fn get_size(&self) -> &Point;
-}
-
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub struct Point {
     pub x : usize,

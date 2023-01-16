@@ -1,11 +1,11 @@
 use core::fmt;
 use std::collections::HashMap;
 
-use crate::{Map, Point, Tile};
+use crate::{Point, Tile};
 use anyhow::bail;
 use rand::{rngs::StdRng, Rng};
 /// Map generated with binary search partitioning. The map must have a size of atleast (20,20).
-/// 
+///
 /// Credit to https://gamedevelopment.tutsplus.com/tutorials/how-to-use-bsp-trees-to-generate-game-maps--gamedev-12268 and https://github.com/whostolemyhat/dungeon
 /// for algorithm and rust implementation help.
 pub struct BSPMap {
@@ -13,9 +13,10 @@ pub struct BSPMap {
     tiles: HashMap<Point, Tile>,
     rooms: Vec<Room>,
     min_room_size: Point,
+    max_room_size: Point,
 }
-impl Map for BSPMap {
-    fn new(size: Point, mut seed: StdRng) -> Result<Self, anyhow::Error> {
+impl BSPMap {
+    pub fn new(size: Point, mut seed: StdRng, min_room_size : Point, max_room_size : Point) -> Result<Self, anyhow::Error> {
         if size.x < 20 || size.y < 20 {
             bail!("Size of a BSP_Map needs to be greater than or equal x : 20, y : 20")
         }
@@ -23,26 +24,24 @@ impl Map for BSPMap {
             size: size,
             tiles: HashMap::new(),
             rooms: Vec::new(),
-            min_room_size: Point { x: 5, y: 5},
+            min_room_size,
+            max_room_size
         };
-        map.place_rooms(&mut seed, map.min_room_size);
+        map.place_rooms(&mut seed, map.min_room_size, map.max_room_size);
         Ok(map)
     }
 
-    fn get_tiles(&self) -> &HashMap<Point, Tile> {
+    pub fn get_tiles(&self) -> &HashMap<Point, Tile> {
         &self.tiles
     }
 
-    fn get_size(&self) -> &Point {
+    pub fn get_size(&self) -> &Point {
         &self.size
     }
-}
-
-impl BSPMap {
-    fn place_rooms(&mut self, rng: &mut StdRng, min_room_size: Point) {
+    fn place_rooms(&mut self, rng: &mut StdRng, min_room_size: Point, max_room_size: Point) {
         let mut root = Leaf::new(Point { x: 0, y: 0 }, self.size);
         // generate leaves
-        root.generate(rng, &min_room_size);
+        root.generate(rng, &min_room_size, &max_room_size);
         // generate rooms in leaves
         root.create_rooms(rng, &min_room_size);
         // Loop over leaves spawning rooms
@@ -62,7 +61,10 @@ impl BSPMap {
     pub fn add_room(&mut self, room: &Room) {
         for x in 0..room.size.x {
             for y in 0..room.size.y {
-                self.tiles.insert(Point::new(room.position.x + x,room.position.y + y), Tile::Floor);
+                self.tiles.insert(
+                    Point::new(room.position.x + x, room.position.y + y),
+                    Tile::Floor,
+                );
             }
         }
         self.rooms.push(room.clone());
@@ -109,7 +111,12 @@ impl Leaf {
             room: None,
         }
     }
-    pub fn split(&mut self, rng: &mut StdRng, min_room_size: &Point) -> bool {
+    pub fn split(
+        &mut self,
+        rng: &mut StdRng,
+        min_room_size: &Point,
+        max_room_size: &Point,
+    ) -> bool {
         if self.left_child.is_some() || self.right_child.is_some() {
             return false;
         }
@@ -124,36 +131,11 @@ impl Leaf {
             split_horizontal = rng.gen_bool(0.5);
         };
 
-        // determine maximum height or width
-        let max = if split_horizontal == true {
-            let y = self.size.y as f32 - min_room_size.y as f32;
-            // make sure we are not making too small of rooms
-            if y as f32 <= min_room_size.y as f32 {
-                return false;
-            }
-            y
-        } else {
-            let x = self.size.x as f32 - min_room_size.x as f32;
-            // make sure we are not making too small of rooms
-            if x as f32 <= min_room_size.x as f32 {
-                return false;
-            }
-            x
-        };
-
         // determine where we are going to split
         let split = if split_horizontal == true {
-            if max as usize <= min_room_size.x {
-                min_room_size.x
-            } else {
-                rng.gen_range(min_room_size.x..=max as usize)
-            }
+            rng.gen_range(min_room_size.x..=max_room_size.y as usize)
         } else {
-            if max as usize <= min_room_size.y {
-                min_room_size.y
-            } else {
-                rng.gen_range(min_room_size.y..=max as usize)
-            }
+            rng.gen_range(min_room_size.y..=max_room_size.y as usize)
         };
         // split
         if split_horizontal {
@@ -161,20 +143,27 @@ impl Leaf {
                 Point::new(self.position.x, self.position.y),
                 Point::new(self.size.x, split),
             )));
-            
-            self.right_child = Some(Box::new(Leaf::new(
-                Point::new(self.position.x, self.position.y + split),
-                Point::new(self.size.x, self.size.y - split),
-            )));
+            if split >= self.size.y {
+                return false;
+            } else {
+                self.right_child = Some(Box::new(Leaf::new(
+                    Point::new(self.position.x, self.position.y + split),
+                    Point::new(self.size.x, self.size.y - split),
+                )));
+            }
         } else {
             self.left_child = Some(Box::new(Leaf::new(
                 Point::new(self.position.x, self.position.y),
                 Point::new(split, self.size.y),
             )));
-            self.right_child = Some(Box::new(Leaf::new(
-                Point::new(self.position.x + split, self.position.y),
-                Point::new(self.size.x - split, self.size.y),
-            )));
+            if split >= self.size.x {
+                return false;   
+            } else {
+                self.right_child = Some(Box::new(Leaf::new(
+                    Point::new(self.position.x + split, self.position.y),
+                    Point::new(self.size.x - split, self.size.y),
+                )));
+            }
         }
         true
     }
@@ -189,17 +178,17 @@ impl Leaf {
         }
     }
 
-    fn generate(&mut self, rng: &mut StdRng, min_room_size: &Point) {
+    fn generate(&mut self, rng: &mut StdRng, min_room_size: &Point, max_room_size: &Point) {
         if self.is_leaf() {
-            if self.split(rng, min_room_size) {
+            if self.split(rng, min_room_size, max_room_size) {
                 self.left_child
                     .as_mut()
                     .unwrap()
-                    .generate(rng, min_room_size);
+                    .generate(rng, min_room_size, max_room_size);
                 self.right_child
                     .as_mut()
                     .unwrap()
-                    .generate(rng, min_room_size);
+                    .generate(rng, min_room_size, max_room_size);
             }
         }
     }
@@ -398,7 +387,11 @@ mod test {
         // Vertically large room
         let mut vert_room = Leaf::new(Point::new(0, 0), Point::new(20, 50));
 
-        let split = vert_room.split(&mut SeedableRng::seed_from_u64(123), &Point::new(10, 10));
+        let split = vert_room.split(
+            &mut SeedableRng::seed_from_u64(123),
+            &Point::new(10, 10),
+            &Point::new(15, 15),
+        );
         assert_eq!(split, true);
         let left_child = vert_room.left_child.unwrap();
         let right_child = vert_room.right_child.unwrap();

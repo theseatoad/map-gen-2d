@@ -11,7 +11,12 @@ repository = "https://github.com/theseatoad/map-gen-2d"
 homepage = "https://github.com/theseatoad/map-gen-2d"
 
 [dependencies]
+anyhow = "1.0.68"
+cairo = "0.0.4"
 rand = "0.8.5"
+serde = "1.0.152"
+serde_derive = "1.0.152"
+serde_json = "1.0.91"
 [[example]]
-name = "bsp-map.rs"
+name = "bsp-map"
 path = "examples/bsp-map.rs"

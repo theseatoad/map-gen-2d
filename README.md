@@ -10,7 +10,8 @@ $ cargo run --example bsp-map
 
 Code example:
 ```rust
-BSPMap::new(Point::new(25,25), SeedableRng::seed_from_u64(124));
+// BSPMap::new(position, size, min_room_size, max_room_size)
+BSPMap::new(Point::new(20,50), SeedableRng::seed_from_u64(1), Point::new(2,5), Point::new(10,15))
 ```
 
 ### Features   

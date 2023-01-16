@@ -16,16 +16,33 @@ pub struct BSPMap {
     max_room_size: Point,
 }
 impl BSPMap {
-    pub fn new(size: Point, mut seed: StdRng, min_room_size : Point, max_room_size : Point) -> Result<Self, anyhow::Error> {
+    pub fn new(
+        size: Point,
+        mut seed: StdRng,
+        min_room_size: Point,
+        max_room_size: Point,
+    ) -> Result<Self, anyhow::Error> {
         if size.x < 20 || size.y < 20 {
             bail!("Size of a BSP_Map needs to be greater than or equal x : 20, y : 20")
+        }
+        if min_room_size.x >= max_room_size.x {
+            bail!("Minimum room size (x) needs to be less than maximum room size (x).")
+        }
+        if min_room_size.y >= max_room_size.y {
+            bail!("Minimum room size (y) needs to be less than maximum room size (y).")
+        }
+        if max_room_size.x >= size.x {
+            bail!("Maximum room size (x) must be less than map size (x).")
+        }
+        if max_room_size.y >= size.y {
+            bail!("Maximum room size (y) must be less than map size (y).")
         }
         let mut map = BSPMap {
             size: size,
             tiles: HashMap::new(),
             rooms: Vec::new(),
             min_room_size,
-            max_room_size
+            max_room_size,
         };
         map.place_rooms(&mut seed, map.min_room_size, map.max_room_size);
         Ok(map)
@@ -52,9 +69,9 @@ impl BSPMap {
                 }
             }
 
-            // for corridor in &leaf.corridors {
-            //     self.add_room(&corridor);
-            // }
+            for corridor in &leaf.corridors {
+                self.add_room(&corridor);
+            }
         }
     }
 
@@ -70,6 +87,22 @@ impl BSPMap {
         self.rooms.push(room.clone());
     }
 }
+
+impl fmt::Display for BSPMap {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for row in 0..self.size.x {
+            for col in 0..self.size.y {
+                match self.tiles.get(&Point::new(row, col)) {
+                    Some(x) => write!(f, "{}", x)?,
+                    None => write!(f, "x")?,
+                }
+            }
+            write!(f, "\n")?
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct Room {
     position: Point,
@@ -99,6 +132,7 @@ pub struct Leaf {
     left_child: Option<Box<Leaf>>,
     right_child: Option<Box<Leaf>>,
     room: Option<Room>,
+    corridors: Vec<Room>,
 }
 
 impl Leaf {
@@ -109,6 +143,7 @@ impl Leaf {
             left_child: None,
             right_child: None,
             room: None,
+            corridors: Vec::new(),
         }
     }
     pub fn split(
@@ -157,7 +192,7 @@ impl Leaf {
                 Point::new(split, self.size.y),
             )));
             if split >= self.size.x {
-                return false;   
+                return false;
             } else {
                 self.right_child = Some(Box::new(Leaf::new(
                     Point::new(self.position.x + split, self.position.y),
@@ -236,6 +271,11 @@ impl Leaf {
                 Point::new(width, height),
             ));
         }
+        if let (Some(ref mut left), Some(ref mut right)) =
+            (&mut self.left_child, &mut self.right_child)
+        {
+            create_corridors(rng, left, right);
+        };
     }
 
     fn get_room(&self) -> Option<Room> {
@@ -253,7 +293,6 @@ impl Leaf {
         if let Some(ref room) = self.right_child {
             right_room = room.get_room();
         }
-
         match (left_room, right_room) {
             (None, None) => None,
             (Some(room), _) => Some(room),
@@ -264,6 +303,41 @@ impl Leaf {
     fn iter(&self) -> LeafIterator {
         LeafIterator::new(&self)
     }
+}
+
+fn create_corridors(rng: &mut StdRng, left: &mut Box<Leaf>, right: &mut Box<Leaf>) {
+    if let (Some(left_room), Some(right_room)) = (left.get_room(), right.get_room()) {
+        // Get random x position and y position
+        let left_point = Point::new(
+            rng.gen_range(left_room.position.x..=(left_room.position.x + left_room.size.x)),
+            rng.gen_range(left_room.position.y..=(left_room.position.y + left_room.size.y)),
+        );
+        // Get random x position and y position
+        let right_point = Point::new(
+            rng.gen_range(right_room.position.x..=(right_room.position.x + right_room.size.x)),
+            rng.gen_range(right_room.position.y..=(right_room.position.y + right_room.size.y)),
+        );
+
+        if left_point.y <= right_point.y {
+            left.corridors.push(vert_corridor(left_point.x, left_point.y, right_point.y));
+        } else {
+            left.corridors.push(vert_corridor(left_point.x, right_point.y, left_point.y));
+        }
+
+        if left_point.x <= right_point.x {
+            left.corridors.push(horz_corridor(left_point.x, right_point.y, right_point.x));
+        } else {
+            left.corridors.push(horz_corridor(right_point.x, right_point.y, left_point.x));
+        }
+    };
+}
+
+fn horz_corridor(start_x: usize, start_y: usize, end_x: usize) -> Room {
+    Room::new(Point { x: start_x, y: start_y }, Point { x : end_x - start_x + 1, y : 1})
+}
+
+fn vert_corridor(start_x: usize, start_y: usize, end_y: usize) -> Room {
+    Room::new(Point { x: start_x, y: start_y }, Point { x: 1, y : end_y - start_y})
 }
 
 struct LeafIterator<'a> {
@@ -282,8 +356,6 @@ impl<'a> LeafIterator<'a> {
         iter
     }
 
-    // set the current node to the one provided
-    // and add any child leaves to the node vec
     fn add_left_subtree(&mut self, node: &'a Leaf) {
         if let Some(ref left) = node.left_child {
             self.right_nodes.push(&*left);
@@ -309,21 +381,6 @@ impl<'a> Iterator for LeafIterator<'a> {
             Some(leaf) => Some(&*leaf),
             None => None,
         }
-    }
-}
-
-impl fmt::Display for BSPMap {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for row in 0..self.size.x {
-            for col in 0..self.size.y {
-                match self.tiles.get(&Point::new(row, col)) {
-                    Some(x) => write!(f, "{}", x)?,
-                    None => write!(f, "x")?,
-                }
-            }
-            write!(f, "\n")?
-        }
-        Ok(())
     }
 }
 

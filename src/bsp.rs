@@ -160,7 +160,7 @@ impl Leaf {
         // determine split direction
         if (self.size.x > self.size.y) && (self.size.x as f32 / self.size.y as f32) >= 1.25 {
             split_horizontal = false;
-        } else if (self.size.x > self.size.y) && (self.size.x as f32 / self.size.y as f32) >= 1.25 {
+        } else if (self.size.y > self.size.x) && (self.size.y as f32 / self.size.x as f32) >= 1.25 {
             split_horizontal = true;
         } else {
             split_horizontal = rng.gen_bool(0.5);

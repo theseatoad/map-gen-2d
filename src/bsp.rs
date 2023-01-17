@@ -45,6 +45,19 @@ impl BSPMap {
             max_room_size,
         };
         map.place_rooms(&mut seed, map.min_room_size, map.max_room_size);
+        for x in 0..size.x {
+            for y in 0..size.y {
+                if x == 0 || x == size.x - 1 {
+                    map.tiles.insert(Point::new(x,y), Tile::Wall);
+                }
+                if y == 0 || y == size.y - 1 {
+                    map.tiles.insert(Point::new(x,y), Tile::Wall);
+                }
+                if map.tiles.get(&Point::new(x,y)).is_none() {
+                    map.tiles.insert(Point::new(x,y), Tile::Wall);
+                }
+            }
+        }
         Ok(map)
     }
 
@@ -54,6 +67,10 @@ impl BSPMap {
 
     pub fn get_size(&self) -> &Point {
         &self.size
+    }
+
+    pub fn get_rooms(&self) -> &Vec<Room> {
+        &&self.rooms
     }
     fn place_rooms(&mut self, rng: &mut StdRng, min_room_size: Point, max_room_size: Point) {
         let mut root = Leaf::new(Point { x: 0, y: 0 }, self.size);

@@ -1,6 +1,6 @@
 [package]
 name = "map-gen-2d"
-version = "0.1.1"
+version = "0.1.15"
 edition = "2021"
 description = "2D map generation algorithms implementaion"
 keywords = ["2d", "procgen", "bsp"]

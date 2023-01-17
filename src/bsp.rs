@@ -45,18 +45,49 @@ impl BSPMap {
             max_room_size,
         };
         map.place_rooms(&mut seed, map.min_room_size, map.max_room_size);
+        // Hard wall around left
+        for y in 0..size.y {
+            map.tiles.insert(Point::new(0, y), Tile::Wall);
+            map.tiles.insert(Point::new(map.size.x, y), Tile::Wall);
+
+        }
+        // hard wall on top
         for x in 0..size.x {
-            for y in 0..size.y {
-                if x == 0 || x == size.x - 1 {
-                    map.tiles.insert(Point::new(x,y), Tile::Wall);
-                }
-                if y == 0 || y == size.y - 1 {
-                    map.tiles.insert(Point::new(x,y), Tile::Wall);
-                }
-                if map.tiles.get(&Point::new(x,y)).is_none() {
-                    map.tiles.insert(Point::new(x,y), Tile::Wall);
-                }
+            map.tiles.insert(Point::new(x, 0), Tile::Wall);
+            map.tiles.insert(Point::new(x, map.size.y), Tile::Wall);
+        }
+        let mut walls : Vec<Point> = Vec::new();
+        // Walls around tiles
+        for tile in map.tiles.iter() {
+            // check all eight points around
+            if map.tiles.get(&Point::new(tile.0.x + 1, tile.0.y)).is_none() {
+               walls.push(Point::new(tile.0.x + 1, tile.0.y))
             }
+            if map.tiles.get(&Point::new(tile.0.x + 1, tile.0.y + 1)).is_none() {
+                walls.push(Point::new(tile.0.x + 1, tile.0.y + 1))
+            }
+            if map.tiles.get(&Point::new(tile.0.x, tile.0.y + 1)).is_none() {
+                walls.push(Point::new(tile.0.x, tile.0.y + 1))
+            }
+            if tile.0.x != 0 && map.tiles.get(&Point::new(tile.0.x - 1, tile.0.y + 1)).is_none() {
+                walls.push(Point::new(tile.0.x - 1, tile.0.y + 1))
+            }
+            if tile.0.x != 0 && map.tiles.get(&Point::new(tile.0.x - 1, tile.0.y)).is_none() {
+                walls.push(Point::new(tile.0.x - 1, tile.0.y))
+            }
+            if tile.0.x != 0 && tile.0.y != 0 && map.tiles.get(&Point::new(tile.0.x - 1, tile.0.y - 1)).is_none() {
+                walls.push(Point::new(tile.0.x - 1, tile.0.y - 1))
+            }
+            if tile.0.y != 0 && map.tiles.get(&Point::new(tile.0.x, tile.0.y - 1)).is_none() {
+                walls.push(Point::new(tile.0.x, tile.0.y - 1))
+            }
+            if tile.0.y != 0 && map.tiles.get(&Point::new(tile.0.x + 1, tile.0.y - 1)).is_none() {
+                walls.push(Point::new(tile.0.x + 1, tile.0.y - 1))
+            }
+        }
+        // Insert walls
+        for wall in walls.iter(){
+            map.tiles.insert(wall.clone(), Tile::Wall);
         }
         Ok(map)
     }
@@ -107,8 +138,14 @@ impl BSPMap {
 
 impl fmt::Display for BSPMap {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for row in 0..self.size.x {
-            for col in 0..self.size.y {
+        // for tile in self.tiles.iter() {
+        //     match self.tiles.get(&tile.0) {
+        //         Some(x) => write!(f, "{}", x)?,
+        //         None => write!(f, "x")?,
+        //     }
+        // }
+        for row in 0..=self.size.x {
+            for col in 0..=self.size.y {
                 match self.tiles.get(&Point::new(row, col)) {
                     Some(x) => write!(f, "{}", x)?,
                     None => write!(f, "x")?,
